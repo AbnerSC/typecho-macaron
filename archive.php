@@ -23,7 +23,7 @@ $this->need('header.php');
                 'date'     => '%s'
             ), '', ''); ?></h1>
             <?php if ($this->have()): ?>
-                <p class="page-desc">共 <?php $this->total(); ?> 篇文章</p>
+                <p class="page-desc">共 <?php echo $this->getTotal(); ?> 篇文章</p>
             <?php endif; ?>
         </header>
 
@@ -51,6 +51,7 @@ $this->need('header.php');
                 <?php endwhile; ?>
             </div>
 
+            <?php macaronFixPageNav($this, $this->options->pageSize); ?>
             <?php $this->pageNav('上一页', '下一页', 1, '…', array(
                 'wrapTag'  => 'nav',
                 'wrapClass'=> 'pagination',

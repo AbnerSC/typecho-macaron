@@ -1,8 +1,11 @@
 <?php
 /**
- * 首页：文章列表
+ * 不忘初心--回归自然
  *
  * @package  typecho-macaron
+ * @author   AbnerSC
+ * @version  1.0
+ * @link     https://github.com/AbnerSC
  */
 if (!defined('__TYPECHO_ROOT_DIR__')) exit;
 
@@ -14,6 +17,7 @@ $this->need('header.php');
 <div class="layout <?php echo $hasSidebar ? 'with-sidebar' : 'narrow'; ?>">
     <div class="content-area">
 
+        <div class="post-list">
         <?php while ($this->next()): ?>
             <article class="post-card <?php echo $this->sticky ? 'is-sticky' : ''; ?>">
                 <?php if ($this->sticky): ?>
@@ -38,7 +42,9 @@ $this->need('header.php');
                 </div>
             </article>
         <?php endwhile; ?>
+        </div>
 
+        <?php macaronFixPageNav($this, $this->options->pageSize); ?>
         <?php $this->pageNav('上一页', '下一页', 1, '…', array(
             'wrapTag'  => 'nav',
             'wrapClass'=> 'pagination',

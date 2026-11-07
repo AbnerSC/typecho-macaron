@@ -152,6 +152,76 @@ function macaronNavItems($options)
 }
 
 /**
+ * 修正分页总页数
+ *
+ * 部分"文章置顶"类插件在首页（第1页）会就地修改 $archive->parameter->pageSize
+ * （例如收缩为 原值 - 置顶数量），而 Typecho 的 pageNav/Box 分页器正是用该
+ * pageSize 计算总页数，导致第1页显示的总页数被膨胀（如 19），而第2页恢复正常
+ * （如 13），点击膨胀出来的尾页会 404。
+ *
+ * 本函数在输出分页前，将 parameter->pageSize 还原为后台配置的真实值
+ * （options->pageSize），使各页总页数保持一致。主题侧无侵入修复，不改动核心与插件。
+ *
+ * @param Typecho_Widget $archive 当前归档组件（模板中的 $this）
+ * @param int|string|null $configured 后台配置的每页数量（在模板中读取 $this->options->pageSize 传入，
+ *                                    避免从外部访问 Widget 魔术属性时取不到值）
+ */
+function macaronFixPageNav($archive, $configured = null)
+{
+    $configured = (int) ($configured ?: 10);
+    if ($configured > 0 && (int) $archive->parameter->pageSize !== $configured) {
+        $archive->parameter->pageSize = $configured;
+    }
+}
+
+/**
+ * 解析链接页自定义字段 links
+ *
+ * 推荐格式：每行一个，「名称,链接」。同时兼容紧凑写法
+ * （多个条目以空格分隔，如：Typecho,https://a.com Github,https://b.com）。
+ * 若未写名称（只有 URL），则名称回退为 URL。
+ *
+ * @param string $raw
+ * @return array<int, array{name:string, url:string}>
+ */
+function macaronParseLinks($raw)
+{
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return [];
+    }
+
+    $links = [];
+    $lines = preg_split('/\r\n|\r|\n/', $raw);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        // 先按“下一个条目边界”（空白后紧跟 名称,http）切分，兼容单行多条目
+        $segments = preg_split('/\s+(?=\S*,\s*https?:\/\/)/i', $line);
+        foreach ($segments as $seg) {
+            $seg = trim($seg);
+            if ($seg === '') {
+                continue;
+            }
+            if (strpos($seg, ',') !== false) {
+                list($name, $url) = array_map('trim', explode(',', $seg, 2));
+            } else {
+                $url = $seg;
+                $name = $seg;
+            }
+            if ($url === '') {
+                continue;
+            }
+            $links[] = ['name' => ($name !== '' ? $name : $url), 'url' => $url];
+        }
+    }
+
+    return $links;
+}
+
+/**
  * 输出安全转义后的文本
  *
  * @param string $text

@@ -7,7 +7,15 @@
 if (!defined('__TYPECHO_ROOT_DIR__')) exit;
 
 $hasSidebar = (($this->options->macaronSidebar ?: 'show') === 'show');
-$hasToc     = (($this->options->macaronPostToc ?: 'show') === 'show');
+
+// 归档页（自定义字段 catalog=1）与链接页（自定义字段 links 非空）
+$isCatalog = ((int) ($this->fields->catalog ?: 0) === 1);
+$linksRaw  = trim((string) ($this->fields->links ?: ''));
+$linkItems = $linksRaw !== '' ? macaronParseLinks($linksRaw) : [];
+$isLinks   = !empty($linkItems);
+
+// 归档/链接等特殊页不展示正文目录
+$hasToc = ((($this->options->macaronPostToc ?: 'show') === 'show') && !$isCatalog && !$isLinks);
 
 $this->need('header.php');
 ?>
@@ -28,7 +36,42 @@ $this->need('header.php');
             <?php endif; ?>
 
             <div class="article-body">
+            <?php if ($isCatalog): ?>
+                <?php $this->widget('Widget_Contents_Post_Recent', 'pageSize=100000')->to($archivePosts); ?>
+                <?php if ($archivePosts->have()): ?>
+                    <div class="archive-list">
+                        <?php $lastMonth = ''; ?>
+                        <?php while ($archivePosts->next()): ?>
+                            <?php $ts = (int) $archivePosts->created; ?>
+                            <?php $ym = date('Y-m', $ts); ?>
+                            <?php if ($ym !== $lastMonth): ?>
+                                <?php if ($lastMonth !== ''): ?></ul><?php endif; ?>
+                                <h3 class="archive-month"><?php echo date('Y', $ts); ?> 年 <?php echo date('n', $ts); ?> 月</h3>
+                                <ul class="archive-items">
+                                <?php $lastMonth = $ym; ?>
+                            <?php endif; ?>
+                                <li>
+                                    <time datetime="<?php echo date('c', $ts); ?>"><?php echo date('m-d', $ts); ?></time>
+                                    <a href="<?php $archivePosts->permalink(); ?>"><?php $archivePosts->title(); ?></a>
+                                </li>
+                            <?php if (!$archivePosts->have()): ?></ul><?php endif; ?>
+                        <?php endwhile; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state">还没有任何文章。</div>
+                <?php endif; ?>
+            <?php elseif ($isLinks): ?>
+                <div class="link-list">
+                    <?php foreach ($linkItems as $link): ?>
+                        <a class="link-card" href="<?php echo macaronE($link['url']); ?>" target="_blank" rel="noopener nofollow">
+                            <span class="link-name"><?php echo macaronE($link['name']); ?></span>
+                            <span class="link-url"><?php echo macaronE($link['url']); ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
                 <?php $this->content(); ?>
+            <?php endif; ?>
             </div>
 
             <?php if ($this->options->allowCommentAtPage && $this->allow('comment')): ?>

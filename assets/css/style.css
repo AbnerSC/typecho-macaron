@@ -61,7 +61,7 @@
     --gap:   24px;
     --gap-sm: 14px;
     --gap-lg: 40px;
-    --container: 1080px;
+    --container: 1600px;
     --reading: 760px;
 
     /* —— 导航栏高度 —— */
@@ -225,9 +225,10 @@ input, textarea, select, button {
     align-items: start;
 }
 
-/* 开启侧边栏时的两栏结构 */
+/* 开启侧边栏时的两栏结构：正文列 900px + 侧边栏 450px，整体居中 */
 .layout.with-sidebar {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 900px) minmax(0, 450px);
+    justify-content: center;
 }
 
 /* 纯阅读居中布局（无侧边栏） */
@@ -376,7 +377,7 @@ input, textarea, select, button {
 
 .post-list {
     display: grid;
-    gap: var(--gap);
+    gap: 32px;
 }
 
 .post-card {
@@ -384,7 +385,7 @@ input, textarea, select, button {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: var(--gap-lg);
+    padding: 22px 26px;
     box-shadow: var(--shadow-sm);
     transition: transform var(--dur) var(--ease),
                 box-shadow var(--dur) var(--ease),
@@ -399,7 +400,7 @@ input, textarea, select, button {
 }
 
 .post-card .card-title {
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     font-size: 1.35rem;
     line-height: 1.4;
     color: var(--text);
@@ -408,7 +409,7 @@ input, textarea, select, button {
 
 .post-card .card-excerpt {
     color: var(--text-soft);
-    margin: 0 0 16px;
+    margin: 0 0 12px;
     line-height: 1.7;
 }
 
@@ -821,8 +822,9 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
     gap: var(--gap);
     margin-top: var(--gap-lg);
 }
-.post-nav-prev, .post-nav-next { min-width: 0; }
+.post-nav-prev, .post-nav-next { min-width: 0; display: flex; }
 .post-nav a {
+    flex: 1;
     display: block;
     padding: 16px 22px;
     border: 1px solid var(--border);
@@ -849,7 +851,9 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
 }
 .post-nav-next { text-align: right; }
 .post-nav .nav-empty {
-    display: block;
+    flex: 1;
+    display: flex;
+    align-items: center;
     padding: 16px 22px;
     border: 1px dashed var(--border);
     border-radius: var(--radius);
@@ -911,6 +915,92 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+/* 分类采用标签胶囊样式；数量多时：限高 + 平滑滚动，避免侧栏被无限撑长 */
+.widget .tag-cloud.cat-cloud {
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 2px 2px 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+.widget .tag-cloud.cat-cloud::-webkit-scrollbar { width: 6px; }
+.widget .tag-cloud.cat-cloud::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: var(--radius-pill);
+}
+.widget .tag-cloud.cat-cloud::-webkit-scrollbar-track { background: transparent; }
+.tag .tag-count {
+    margin-left: 6px;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+}
+.tag:hover .tag-count { color: rgba(255, 255, 255, 0.85); }
+
+/* 归档页（按年月分组） */
+.archive-list { margin-top: 4px; }
+.archive-month {
+    margin: 24px 0 10px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--primary-ink);
+}
+.archive-month:first-child { margin-top: 0; }
+.archive-items {
+    list-style: none;
+    margin: 0 0 6px;
+    padding: 0;
+}
+.archive-items li {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--divider);
+}
+.archive-items li:last-child { border-bottom: none; }
+.archive-items time {
+    flex: none;
+    font-size: 0.82rem;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+}
+.archive-items a { color: var(--text); }
+.archive-items a:hover { color: var(--primary-ink); }
+
+/* 链接页（卡片网格） */
+.link-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--gap);
+}
+.link-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 18px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: border-color var(--dur) var(--ease),
+                transform var(--dur) var(--ease),
+                box-shadow var(--dur) var(--ease);
+}
+.link-card:hover {
+    border-color: var(--primary-soft);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+.link-card .link-name {
+    font-weight: 600;
+    color: var(--text);
+}
+.link-card:hover .link-name { color: var(--primary-ink); }
+.link-card .link-url {
+    font-size: 0.8rem;
+    color: var(--text-faint);
+    word-break: break-all;
 }
 
 /* -------------------------------------------------------------------------

@@ -20,11 +20,11 @@ $this->need('header.php');
             <h1>搜索结果</h1>
             <p class="page-desc">
                 关键词「<strong><?php echo $this->archiveTitle('', '', false); ?></strong>」
-                <?php if ($this->have()): ?>· 共 <?php $this->total(); ?> 条结果<?php endif; ?>
+                <?php if ($this->have()): ?>· 共 <?php echo $this->getTotal(); ?> 条结果<?php endif; ?>
             </p>
             <form class="search-form" method="get" action="<?php $this->options->siteUrl(); ?>" style="margin-top:18px;">
                 <input type="search" name="s" placeholder="搜索文章…" aria-label="搜索"
-                       value="<?php echo $this->widget('Widget_Request')->s; ?>">
+                       value="<?php echo macaronE($this->archiveSlug); ?>">
                 <button class="btn search-submit" type="submit" aria-label="搜索">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
                 </button>
@@ -49,6 +49,7 @@ $this->need('header.php');
                 <?php endwhile; ?>
             </div>
 
+            <?php macaronFixPageNav($this, $this->options->pageSize); ?>
             <?php $this->pageNav('上一页', '下一页', 1, '…', array(
                 'wrapTag'  => 'nav',
                 'wrapClass'=> 'pagination',
