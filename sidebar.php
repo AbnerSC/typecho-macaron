@@ -15,7 +15,9 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
         <h3 class="widget-title">搜索</h3>
         <form class="search-form" method="get" action="">
             <input type="search" name="s" placeholder="搜索文章…" aria-label="搜索" required>
-            <button class="btn" type="submit">搜索</button>
+            <button class="btn search-submit" type="submit" aria-label="搜索">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+            </button>
         </form>
     </section>
 

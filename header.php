@@ -11,8 +11,8 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
 <head>
     <meta charset="<?php $this->options->charset(); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#161617" media="(prefers-color-scheme: dark)">
     <title>
         <?php $this->archiveTitle(array(
             'category' => '分类 %s',
