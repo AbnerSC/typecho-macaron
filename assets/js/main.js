@@ -137,6 +137,13 @@
             return;
         }
 
+        // 动态基准层级：文章未必从 H1 开始，取实际存在的最高层级作为一级目录
+        var minLevel = 6;
+        Array.prototype.forEach.call(headings, function (h) {
+            var lv = parseInt(h.tagName.slice(1), 10);
+            if (lv < minLevel) minLevel = lv;
+        });
+
         var items = [];
         Array.prototype.forEach.call(headings, function (h, i) {
             if (!h.id) h.id = 'toc-' + i;
@@ -144,9 +151,9 @@
             var a = document.createElement('a');
             a.href = '#' + h.id;
             a.textContent = h.textContent;
-            // 按级别缩进（H1 为基准层级，H2~H6 逐级递进）
-            var level = parseInt(h.tagName.slice(1), 10);
-            if (level > 1) a.className = 'toc-h' + level;
+            // 按相对层级缩进（以动态基准为一级，往下逐级递进）
+            var depth = parseInt(h.tagName.slice(1), 10) - minLevel + 1;
+            if (depth > 1) a.className = 'toc-lv' + depth;
             li.appendChild(a);
             list.appendChild(li);
             items.push({ id: h.id, link: a });
