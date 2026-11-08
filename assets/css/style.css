@@ -1240,7 +1240,12 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
     border-left-color: var(--primary);
     background: var(--bg-soft);
 }
-.toc .toc-h3 { padding-left: 24px; font-size: 0.82rem; }
+/* 目录逐级缩进：H1 为基准，H2~H6 依次递进 */
+.toc .toc-h2 { padding-left: 24px; font-size: 0.84rem; }
+.toc .toc-h3 { padding-left: 38px; font-size: 0.82rem; }
+.toc .toc-h4 { padding-left: 52px; font-size: 0.8rem; }
+.toc .toc-h5 { padding-left: 66px; font-size: 0.78rem; }
+.toc .toc-h6 { padding-left: 80px; font-size: 0.76rem; }
 
 /* 返回顶部 */
 .back-to-top {

@@ -128,7 +128,7 @@
         var list = tocBox.querySelector('.toc-list');
         if (!list) return;
 
-        var headings = body.querySelectorAll('h2, h3');
+        var headings = body.querySelectorAll('h1, h2, h3, h4, h5, h6');
         if (headings.length < 2) {
             // 章节过短则不展示目录
             tocBox.style.display = 'none';
@@ -144,7 +144,9 @@
             var a = document.createElement('a');
             a.href = '#' + h.id;
             a.textContent = h.textContent;
-            if (h.tagName === 'H3') a.className = 'toc-h3';
+            // 按级别缩进（H1 为基准层级，H2~H6 逐级递进）
+            var level = parseInt(h.tagName.slice(1), 10);
+            if (level > 1) a.className = 'toc-h' + level;
             li.appendChild(a);
             list.appendChild(li);
             items.push({ id: h.id, link: a });
