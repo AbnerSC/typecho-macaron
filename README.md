@@ -8,6 +8,10 @@
 - Typecho 仓库：<https://github.com/typecho/typecho.git>
 - 主题开发文档：<https://docs.typecho.org/develop/theme/>
 
+## GitHub
+- https://github.com/AbnerSC/typecho-macaron.git
+- [![GitHub Stars](https://img.shields.io/github/stars/AbnerSC/typecho-macaron?style=flat&label=Stars)](https://github.com/AbnerSC/typecho-macaron/stargazers)
+
 ---
 
 ## 特性
