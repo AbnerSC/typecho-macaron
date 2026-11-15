@@ -1,0 +1,267 @@
+# =====================================================================
+# Gitea Actions：发布版本时自动打包主题部署包，并挂载为版本附件
+#
+# 职责：
+#   - 在 Gitea 发布版本（release published）后，把该 tag 的主题文件打包为
+#     typecho-macaron-vX.Y.Z.zip（包内顶层目录 typecho-macaron/），上传为
+#     Gitea Release 附件；用户下载解压到 usr/themes/ 即完成部署
+#   - 打包采用白名单（10 个主题模板 PHP + assets/ + screenshot.png +
+#     README.md + LICENSE），images/（README 配图）、.gitea 等开发文件不进包
+#
+# 触发方式：
+#   1) 自动：在 Gitea 发布版本（release 事件 published）后立即触发
+#   2) 手动：Actions 页面 Run workflow，Tag 支持 `1.2.3` / `v1.2.3` /
+#      `release-v1.2.3`，留空则取最新发布版本（补打包、失败重试）
+#   重复执行是幂等的：同名 zip 附件先删后传，始终以最新构建为准
+#
+# 与 release-sync-github.yml 的协作：
+#   两者同时被 release published 触发、并发执行；本工程的同步工作流
+#   不轮询等待本工作流，若它先跑完而 zip 尚未上传，GitHub 侧 Release
+#   会暂时缺 zip 附件。补救：等本工作流成功后，手动重跑「Release 同步
+#   发布到 GitHub」即可补传附件（同步幂等：已存在附件跳过、缺失补传）。
+#   （本目录会镜像到 GitHub，但 GitHub 只解析 .github/workflows，
+#     不会在 GitHub 侧重复执行本工作流）
+#
+# 前置条件（凭据一律配在 Gitea 侧，不要写进本文件）：
+#   - 上传附件需要仓库「写」权限，凭据回退链：
+#       secrets.API_TOKEN_GITEA || vars.API_TOKEN_GITEA || 内置 GITHUB_TOKEN
+#     注意：与同步工作流的只读要求不同——若已按其注释配置了只读
+#     API_TOKEN_GITEA，请提升为写权限，或删掉该配置让内置 token 接管
+#   - 可选全局变量（不配置则用默认值）：
+#       GITEA_API_BASE   Gitea API 地址（默认由内置 GITHUB_SERVER_URL 推导，
+#                        runner 需走内网地址访问 Gitea 时显式指定）
+#
+# 运行环境：容器内需有 curl / jq / zip，缺失时本工作流自动安装
+#          （兼容 apt / apk / dnf / microdnf / yum）；tar 为系统自带。
+# =====================================================================
+name: 发布打包主题部署包
+
+on:
+  # 发布版本时自动打包（Gitea 发布 Release 会同时产生 release-vX.Y.Z tag）
+  release:
+    types:
+      - published
+  # 手动补打包：历史版本、失败重试
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要打包的版本（1.2.3 或 release-v1.2.3；留空 = 最新发布版本）'
+        required: false
+        default: ''
+
+permissions:
+  # 上传 Release 附件需要内容写权限（作用于内置 GITHUB_TOKEN）
+  contents: write
+
+concurrency:
+  # 同一版本的打包串行执行，避免手动重跑与自动触发同时上传附件
+  group: release-package-${{ github.event.release.tag_name || github.event.inputs.tag || 'latest' }}
+  cancel-in-progress: false
+
+env:
+  # Gitea API 地址：留空则用内置变量推导（GITHUB_SERVER_URL 即 Gitea 站点地址）
+  GITEA_API_BASE: ${{ vars.GITEA_API_BASE }}
+
+jobs:
+  package-release:
+    name: 打包主题部署包并挂载附件
+    # 只需 curl/jq/zip + Gitea API，无需检出 git 仓库（源码走 API tarball），
+    # 如需换 runner 只改这一行
+    runs-on: base
+    timeout-minutes: 15
+    steps:
+      - name: 准备 curl、jq 与 zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && command -v zip >/dev/null 2>&1; then
+            echo "依赖已就绪"
+          elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y -qq --no-install-recommends curl ca-certificates jq zip
+          elif command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl jq zip
+          elif command -v dnf >/dev/null 2>&1; then
+            dnf -y install curl jq zip
+          elif command -v microdnf >/dev/null 2>&1; then
+            microdnf -y install curl jq zip
+          elif command -v yum >/dev/null 2>&1; then
+            yum -y install curl jq zip
+          else
+            echo "::error::容器镜像内缺少 curl/jq/zip，且未识别到可用的包管理器；请换用自带依赖的 runner 镜像"
+            exit 1
+          fi
+          echo "curl: $(curl --version | head -n1)"
+          echo "jq:   $(jq --version)"
+          echo "zip:  $(command -v zip)"
+
+      - name: 打包并上传附件
+        shell: bash
+        env:
+          # 触发来源：release published 事件 或 workflow_dispatch
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          # Gitea 侧仓库路径与站点地址（Gitea Actions 内置变量）
+          GITEA_REPO: ${{ github.repository }}
+          GITEA_SERVER_URL: ${{ github.server_url }}
+          # 上传附件需要「写」权限：Secret 优先，回退实例级全局变量，
+          # 再兜底 Actions 内置 token（本仓库场景内置 token 够用）
+          GITEA_TOKEN: ${{ secrets.API_TOKEN_GITEA || vars.API_TOKEN_GITEA || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+
+          # ---------- 0. 地址、凭据与公共函数 ----------
+          GITEA_API="${GITEA_API_BASE:-${GITEA_SERVER_URL%/}/api/v1}"
+          GITEA_API="${GITEA_API%/}"
+
+          # 包内顶层目录必须与主题目录名一致
+          # （解压到 usr/themes/ 后得到 usr/themes/typecho-macaron/，后台即可启用）
+          THEME_DIR="typecho-macaron"
+
+          err() { echo "::error::$1"; exit 1; }
+          [[ -n "$GITEA_TOKEN" ]] || err "未取得 Gitea 凭据：内置 token 缺失，请检查 runner 配置"
+
+          GT_HDR=(-H "Authorization: token $GITEA_TOKEN")
+
+          # http <输出文件> <方法> <URL> [curl 额外参数...] -> 打印 HTTP 状态码
+          # 仅 GET 重试：上传/删除附件属写操作，重试可能重复提交
+          http() {
+            local out="$1" method="$2" url="$3"; shift 3
+            local retry_args=()
+            if [[ "$method" == "GET" ]]; then
+              retry_args=(--retry 3 --retry-delay 2)
+            fi
+            local code
+            if ! code=$(curl -sS "${retry_args[@]}" -L -o "$out" -w '%{http_code}' \
+                          -X "$method" "$@" "$url"); then
+              echo "000"
+              return 0
+            fi
+            echo "$code"
+          }
+          # 打印响应体片段，便于定位权限/参数校验错误
+          peek() { head -c 400 "$1" 2>/dev/null | tr -d '\n'; }
+
+          # ---------- 1. 解析待打包的 tag ----------
+          RAW_TAG=""
+          if [[ "$EVENT_NAME" == "release" ]]; then
+            RAW_TAG="${EVENT_TAG:-}"
+            echo "触发方式：发布版本事件（自动打包）"
+          else
+            RAW_TAG="${INPUT_TAG:-}"
+            echo "触发方式：手动运行（打包指定版本）"
+          fi
+
+          if [[ -z "${RAW_TAG// }" ]]; then
+            # 手动触发未填 tag：取 Gitea 最新发布版本
+            code=$(http "$TMP/latest.json" GET "$GITEA_API/repos/$GITEA_REPO/releases/latest" "${GT_HDR[@]}")
+            [[ "$code" == "200" ]] || err "获取 Gitea 最新发布版本失败（HTTP $code）：$(peek "$TMP/latest.json")"
+            RAW_TAG=$(jq -r '.tag_name // ""' "$TMP/latest.json")
+            echo "未指定 tag，使用最新发布版本：$RAW_TAG"
+          fi
+
+          # 简写 X.Y.Z / vX.Y.Z 自动补全为 release-vX.Y.Z（与同步工作流同一规则）
+          if [[ "$RAW_TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            TAG="release-v${RAW_TAG#v}"
+          else
+            TAG="$RAW_TAG"
+          fi
+          [[ "$TAG" =~ ^release-v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || err "版本 tag 格式必须为 release-vX.Y.Z（也可简填 X.Y.Z），当前为：${TAG:-（空）}"
+          VER="${TAG#release-v}"
+          echo "待打包 tag：$TAG（版本号 $VER）"
+
+          # ---------- 2. 读取 Release（拿 id 与现有附件列表） ----------
+          code=$(http "$TMP/rel.json" GET "$GITEA_API/repos/$GITEA_REPO/releases/tags/$TAG" "${GT_HDR[@]}")
+          [[ "$code" == "200" ]] \
+            || err "Gitea 中不存在版本 $TAG 或 Token 无读取权限（HTTP $code）：$(peek "$TMP/rel.json")"
+          REL_ID=$(jq -r '.id // 0' "$TMP/rel.json")
+          [[ "$REL_ID" != "0" ]] || err "Gitea Release 响应中缺少 id：$(peek "$TMP/rel.json")"
+          REL_URL=$(jq -r '.html_url // ""' "$TMP/rel.json")
+
+          # ---------- 3. 下载 tag 源码并组装部署包 ----------
+          code=$(http "$TMP/repo.tar.gz" GET "$GITEA_API/repos/$GITEA_REPO/archive/$TAG.tar.gz" "${GT_HDR[@]}")
+          [[ "$code" == "200" ]] \
+            || err "下载 tag 源码包失败（HTTP $code）：$(peek "$TMP/repo.tar.gz")"
+          SRC_ROOT="$TMP/repo"
+          mkdir -p "$SRC_ROOT"
+          # Gitea tarball 有一层 {repo}-{tag} 顶层目录，剥掉后按白名单取文件
+          tar -xzf "$TMP/repo.tar.gz" -C "$SRC_ROOT" --strip-components=1
+
+          DIST="$TMP/dist/$THEME_DIR"
+          mkdir -p "$DIST"
+          # 部署白名单：主题模板必需文件 + 静态资源 + 随包文档；
+          # images/（README 配图）、.gitea 等开发文件不进包
+          for item in index.php header.php footer.php functions.php sidebar.php \
+                      archive.php page.php post.php search.php comments.php \
+                      README.md LICENSE; do
+            if [[ -e "$SRC_ROOT/$item" ]]; then
+              cp -a "$SRC_ROOT/$item" "$DIST/"
+            elif [[ "$item" == "README.md" || "$item" == "LICENSE" ]]; then
+              echo "提示：仓库不含 $item，跳过"
+            else
+              err "tag $TAG 缺少主题必需文件：$item"
+            fi
+          done
+          # screenshot.png 是 Typecho 后台主题列表的预览图（官方约定文件名），
+          # 缺失不影响主题功能，仅提示
+          if [[ -f "$SRC_ROOT/screenshot.png" ]]; then
+            cp -a "$SRC_ROOT/screenshot.png" "$DIST/"
+          else
+            echo "提示：仓库不含 screenshot.png，Typecho 后台主题列表将无预览图"
+          fi
+          [[ -d "$SRC_ROOT/assets" ]] || err "tag $TAG 缺少主题必需目录：assets/"
+          cp -a "$SRC_ROOT/assets" "$DIST/"
+
+          FILE_COUNT=$(find "$DIST" -type f | wc -l | tr -d ' ')
+          [[ "$FILE_COUNT" -gt 0 ]] || err "部署包组装结果为空，请检查白名单与 tag 内容"
+          echo "部署包组装完成：$FILE_COUNT 个文件"
+
+          # ---------- 4. 压缩为 zip ----------
+          ZIP_NAME="${THEME_DIR}-v${VER}.zip"
+          (cd "$TMP/dist" && zip -r -q -X "$TMP/$ZIP_NAME" "$THEME_DIR")
+          zip -T "$TMP/$ZIP_NAME" >/dev/null || err "zip 完整性校验失败"
+          ZIP_SIZE=$(wc -c < "$TMP/$ZIP_NAME" | tr -d ' ')
+          echo "已生成 $ZIP_NAME（$ZIP_SIZE 字节）"
+
+          # ---------- 5. 幂等上传附件（同名先删后传） ----------
+          OLD_ID=$(jq -r --arg n "$ZIP_NAME" \
+            'first((.assets // [])[] | select(.name == $n) | .id) // ""' "$TMP/rel.json")
+          if [[ -n "$OLD_ID" ]]; then
+            code=$(http "$TMP/del.json" DELETE \
+                    "$GITEA_API/repos/$GITEA_REPO/releases/$REL_ID/assets/$OLD_ID" "${GT_HDR[@]}")
+            # 404 = 已被其他运行删除，同样视为成功
+            [[ "$code" == "204" || "$code" == "404" ]] \
+              || err "删除旧附件失败（HTTP $code）：$(peek "$TMP/del.json")"
+            echo "已删除旧附件（id=$OLD_ID），将重新上传"
+          fi
+
+          q_name=$(jq -rn --arg n "$ZIP_NAME" '$n | @uri')
+          code=$(http "$TMP/upload.json" POST \
+                  "$GITEA_API/repos/$GITEA_REPO/releases/$REL_ID/assets?name=$q_name" \
+                  "${GT_HDR[@]}" -F "attachment=@$TMP/$ZIP_NAME;type=application/zip")
+          [[ "$code" == "201" ]] \
+            || err "上传附件失败（HTTP $code，Token 需具备仓库写权限）：$(peek "$TMP/upload.json")"
+
+          REMOTE_SIZE=$(jq -r '.size // 0' "$TMP/upload.json")
+          [[ "$REMOTE_SIZE" == "$ZIP_SIZE" ]] \
+            || err "附件大小校验不符（本地 $ZIP_SIZE，远端 $REMOTE_SIZE），请重跑本工作流"
+          ASSET_URL=$(jq -r '.browser_download_url // ""' "$TMP/upload.json")
+
+          # ---------- 6. 输出结果 ----------
+          summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          {
+            echo "### 主题部署包已挂载到 Gitea Release"
+            echo "- tag：\`$TAG\`"
+            echo "- 附件：\`$ZIP_NAME\`（$ZIP_SIZE 字节，$FILE_COUNT 个文件）"
+            echo "- 包内顶层目录：\`$THEME_DIR/\`（解压到 \`usr/themes/\` 即完成部署，后台启用 Macaron 主题）"
+            if [[ -n "$ASSET_URL" ]]; then
+              echo "- 下载：$ASSET_URL"
+            fi
+            if [[ -n "$REL_URL" ]]; then
+              echo "- 版本页：$REL_URL"
+            fi
+          } >> "$summary"
+          echo "打包上传完成：$TAG -> $ZIP_NAME（$REL_URL）"

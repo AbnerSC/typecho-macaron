@@ -404,6 +404,10 @@ input, textarea, select, button {
     font-size: 1.35rem;
     line-height: 1.4;
     color: var(--text);
+    /* flex 对齐：标题链接与置顶徽章几何居中，不依赖字体基线度量 */
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
 }
 .post-card:hover .card-title { color: var(--primary-ink); }
 
@@ -434,24 +438,32 @@ input, textarea, select, button {
 }
 a.tag:hover { background: var(--primary-soft); color: #fff; }
 
-/* 置顶文章差异化样式 */
-.post-card.is-sticky {
-    border-color: var(--primary-soft);
-    background:
-        linear-gradient(180deg, rgba(61, 127, 196, 0.06), rgba(61, 127, 196, 0.02)),
-        var(--surface);
-}
+/* 置顶标签：内联于文章标题后（红色小标签）
+   垂直对齐按真实位图像素实测校准，关键决策：
+   - 徽章文字用等线（Win 自带，缺失时回退苹方/雅黑）：雅黑 hinting 在 DPR 2
+     （Windows 125%/150% 缩放的典型值）下会把 12px 字形大幅下推，造成背景上下
+     留白肉眼可见的不对称；等线 hinting 温和，各缩放档位 ink 居中
+   - height:1em 使盒高恒为整数物理px（12/18/24/60px），亚像素盒高会在取整
+     边界上随 top 补偿值跳变，ink 相对背景漂移 1-2 物理px
+   - 四边留白等宽：用 border .25em（=3px，与水平 padding 相同）向外扩展背景，
+     文字布局不动；站点全局 border-box，总高需显式 height:1.5em（含边框），
+     内容区恰为 1em 行盒；总高 18px 仍是各档整数物理px，居中解耦不破坏
+   - top 把徽章中心对齐标题字形视觉中心（雅黑标题字形重心比行盒中心偏下） */
 .sticky-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
-    border-radius: var(--radius-pill);
-    background: var(--primary);
+    margin: 0 .25rem;
+    padding: 0;
+    border: .25em solid #E5183B;
+    border-radius: 3px;
+    background-color: #E5183B;
     color: #fff;
-    font-size: 0.72rem;
-    font-weight: 600;
-    margin-bottom: 10px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    font-family: "DengXian", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1;
+    height: 1.5em;
+    flex: none;
+    position: relative;
+    top: 1.33px;
 }
 
 /* 分页 */

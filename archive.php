@@ -30,12 +30,9 @@ $this->need('header.php');
         <?php if ($this->have()): ?>
             <div class="post-list">
                 <?php while ($this->next()): ?>
-                    <article class="post-card <?php echo $this->sticky ? 'is-sticky' : ''; ?>">
-                        <?php if ($this->sticky): ?>
-                            <span class="sticky-badge">置顶</span>
-                        <?php endif; ?>
+                    <article class="post-card">
                         <h2 class="card-title">
-                            <a href="<?php $this->permalink(); ?>"><?php $this->title(); ?></a>
+                            <a href="<?php $this->permalink(); ?>"><?php $this->title(); ?></a><?php if ($this->sticky): ?><span class="sticky-badge">置顶</span><?php endif; ?>
                         </h2>
                         <p class="card-excerpt"><?php $this->excerpt(160, '…'); ?></p>
                         <div class="post-meta">

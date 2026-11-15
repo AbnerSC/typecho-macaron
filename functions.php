@@ -101,18 +101,221 @@ function themeConfig($form)
         '开启后为文章代码块提供适配浅色/深色的语法高亮。'
     );
     $form->addInput($codeHighlight);
+
+    // 首页置顶文章
+    $stickyPosts = new \Typecho\Widget\Helper\Form\Element\Text(
+        'macaronStickyPosts',
+        null,
+        null,
+        '首页置顶文章',
+        '置顶于首页第 1 页顶部的文章 cid，按显示顺序输入，以半角逗号或空格分隔（如：65,56,210）；留空则关闭置顶。'
+    );
+    $form->addInput($stickyPosts);
+
+    // 分类页置顶开关
+    $stickyCategory = new \Typecho\Widget\Helper\Form\Element\Radio(
+        'macaronStickyCategory',
+        ['show' => '开启', 'hide' => '关闭'],
+        'hide',
+        '分类页置顶',
+        '开启后上述文章在其所属分类页（含子分类）同样置顶。'
+    );
+    $form->addInput($stickyCategory);
 }
 
 /**
  * 主题初始化钩子
  *
- * 保留 Typecho 原生行为，仅在需要时扩展；当前不改动默认路由与Feed。
+ * Typecho 1.2+ 中主题 functions.php 在 Widget\Archive::execute() 内、列表查询执行前加载；
+ * 置顶注入改挂 beforeRender 钩子（列表查询完成后、模板渲染前触发），
+ * 由 macaronInjectSticky() 调整行堆栈。
  *
  * @param Typecho_Widget $widget
  */
 function themeInit($widget)
 {
-    // 预留：后续可在此注册自定义路由，不破坏原生能力。
+    \Typecho\Plugin::factory(\Widget\Archive::class)->beforeRender = 'macaronInjectSticky';
+}
+
+/**
+ * 注入置顶文章（文章置顶功能核心）
+ *
+ * 参考 Sticky 插件在主题层实现：首页与分类页第 1 页时，将配置的置顶文章
+ * 按顺序压入文章列表顶部，并从常规列表行中移除以避免重复；第 2 页起不注入，
+ * 置顶文章也不再出现在后续分页中（与 Sticky 插件行为一致）。
+ *
+ * 行堆栈操作使用反射完成：置顶行携带 sticky 标记，模板中经
+ * if ($this->sticky) 输出「置顶」徽章。
+ *
+ * @param \Widget\Archive $archive 当前归档组件
+ */
+function macaronInjectSticky($archive)
+{
+    $type = $archive->parameter->type;
+    $isIndex = ($type === 'index' || $type === 'index_page');
+    $isCategory = ($type === 'category' || $type === 'category_page');
+    if (!$isIndex && !$isCategory) {
+        return;
+    }
+
+    // Widget\Archive 未暴露 options 访问器，从全局 Options 组件读取主题设置
+    $options = \Widget\Options::alloc();
+    $raw = trim((string) $options->macaronStickyPosts);
+    if ($raw === '') {
+        return;
+    }
+
+    // 解析 cid 列表：兼容半角/全角逗号与空格分隔，去重保序
+    $cids = [];
+    foreach (preg_split('/[\s,，]+/u', $raw, -1, PREG_SPLIT_NO_EMPTY) as $piece) {
+        $cid = (int) $piece;
+        if ($cid > 0 && !in_array($cid, $cids, true)) {
+            $cids[] = $cid;
+        }
+    }
+    if (!$cids) {
+        return;
+    }
+
+    // 分类页：受开关控制，且仅置顶归属于当前分类（含子分类）的文章
+    $categoryMids = null;
+    if ($isCategory) {
+        if (($options->macaronStickyCategory ?: 'hide') !== 'show') {
+            return;
+        }
+        $categoryMids = macaronCurrentCategoryMids($archive);
+        if (!$categoryMids) {
+            return;
+        }
+    }
+
+    $db = \Typecho\Db::get();
+
+    // 按配置顺序取出置顶文章行（与列表查询同构：仅公开且已发布的文章）
+    $rows = $db->fetchAll($archive->select()
+        ->where('table.contents.type = ?', 'post')
+        ->where('table.contents.status = ?', 'publish')
+        ->where('table.contents.created < ?', (int) $options->time)
+        ->where('table.contents.cid IN ?', $cids));
+    $rowsByCid = [];
+    foreach ($rows as $row) {
+        $rowsByCid[(int) $row['cid']] = $row;
+    }
+
+    $stickyRows = [];
+    foreach ($cids as $cid) {
+        if (!isset($rowsByCid[$cid])) {
+            continue;
+        }
+        if ($categoryMids !== null) {
+            $belongsTo = $db->fetchRow($db->select()
+                ->from('table.relationships')
+                ->where('cid = ?', $cid)
+                ->where('mid IN ?', $categoryMids)
+                ->limit(1));
+            if (!$belongsTo) {
+                continue;
+            }
+        }
+        $row = $rowsByCid[$cid];
+        $row['sticky'] = true;   // 模板中经 $this->sticky 渲染置顶徽章
+        $stickyRows[] = $row;
+    }
+
+    // 调整行堆栈：置顶行须经 Widget\Base::push() 的 filter 流程富化（日期对象、
+    // permalink 等）方可渲染；第 1 页 push 后搬移至头部，其余页仅移除防重复
+    $stackProp = new \ReflectionProperty(\Typecho\Widget::class, 'stack');
+    $stackProp->setAccessible(true);
+    $page1 = ($stickyRows && $archive->getCurrentPage() === 1);
+
+    if ($page1) {
+        // push() 追加至堆栈尾部并完成行富化，随后统一过滤并搬移
+        foreach ($stickyRows as $row) {
+            $archive->push($row);
+        }
+    }
+
+    // 保留携带 sticky 标记的新增置顶行，移除其余与置顶 cid 重复的原始行
+    $stack = array_values(array_filter($stackProp->getValue($archive), function ($row) use ($cids) {
+        return isset($row['sticky']) || !in_array((int) $row['cid'], $cids, true);
+    }));
+
+    if ($page1) {
+        $pushed = array_splice($stack, count($stack) - count($stickyRows));
+        $stack = array_merge($pushed, $stack);
+    }
+
+    // 移除置顶行后当前页已无内容（超出实际分页范围），与核心行为一致地回落 404
+    if (!$stack && $archive->getCurrentPage() > 1) {
+        throw new \Typecho\Widget\Exception(_t('请求的地址不存在'), 404);
+    }
+
+    reset($stack);
+    $stackProp->setValue($archive, $stack);
+
+    // 分页计数同步排除置顶行，避免末尾出现空页（与 Sticky 插件查询层排除的行为一致）
+    $countSql = $archive->getCountSql();
+    if ($countSql) {
+        $countSql->where('table.contents.cid NOT IN ?', $cids);
+        $archive->setCountSql($countSql);
+    }
+}
+
+/**
+ * 获取分类页当前分类及其子分类的 mid 集合
+ *
+ * 与 Widget\Archive::categoryHandle 保持一致，支持 mid、slug、directory
+ * 三种路由形态；无法确定当前分类时返回空数组（视为不置顶）。
+ *
+ * @param \Widget\Archive $archive 当前归档组件
+ * @return array<int, int>
+ */
+function macaronCurrentCategoryMids($archive)
+{
+    $request = $archive->request;
+    $db = \Typecho\Db::get();
+    $mid = 0;
+
+    if ($request->is('mid')) {
+        $mid = (int) $request->filter('int')->get('mid');
+    } else {
+        $slug = $request->get('slug');
+        if (!$slug && $request->is('directory')) {
+            $directory = explode('/', (string) $request->get('directory'));
+            $slug = $directory[count($directory) - 1];
+        }
+        if ($slug) {
+            $category = $db->fetchRow($db->select('mid')
+                ->from('table.metas')
+                ->where('type = ?', 'category')
+                ->where('slug = ?', $slug));
+            $mid = $category ? (int) $category['mid'] : 0;
+        }
+    }
+
+    if ($mid <= 0) {
+        return [];
+    }
+
+    // 展开子分类：直接查表构建父子映射后广度优先收集（核心的 getAllChildIds
+    // 挂在 Widget\Metas\From 上而非 Category\Rows，跨版本宿主不稳，查表最可靠）
+    $mids = [$mid];
+    $childrenMap = [];
+    $categories = $db->fetchAll($db->select('mid', 'parent')
+        ->from('table.metas')
+        ->where('type = ?', 'category'));
+    foreach ($categories as $category) {
+        $childrenMap[(int) $category['parent']][] = (int) $category['mid'];
+    }
+    for ($i = 0; $i < count($mids); $i++) {
+        foreach ($childrenMap[$mids[$i]] ?? [] as $child) {
+            if (!in_array($child, $mids, true)) {
+                $mids[] = $child;
+            }
+        }
+    }
+
+    return $mids;
 }
 
 /**
