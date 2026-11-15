@@ -91,8 +91,7 @@ jobs:
   sync-release:
     name: 同步 Release 到 GitHub
     # 本任务只调用 API + curl，不需要检出代码，任何带 bash 的 runner 镜像均可运行；
-    # 沿用实例上现成的 golang runner，如需换 runner 只改这一行
-    runs-on: golang
+    runs-on: base
     timeout-minutes: 20
     steps:
       - name: 准备 curl 与 jq
