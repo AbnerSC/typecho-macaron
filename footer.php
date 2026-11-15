@@ -42,6 +42,23 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
         </div>
     </footer>
 
+    <!-- 液态玻璃折射滤镜：feDisplacementMap 使背景透过玻璃边缘时产生流动弯曲。
+         仅 Chromium 系浏览器支持 backdrop-filter 引用 SVG 滤镜；不支持的浏览器
+         视整条声明无效，自动回落为普通毛玻璃，无需 JS 探测。 -->
+    <svg width="0" height="0" aria-hidden="true" focusable="false"
+         style="position:absolute">
+        <defs>
+            <filter id="macaron-lg-refract" x="-20%" y="-20%" width="140%" height="140%"
+                    color-interpolation-filters="sRGB">
+                <feTurbulence type="fractalNoise" baseFrequency="0.016 0.024"
+                              numOctaves="2" seed="7" result="noise"/>
+                <feGaussianBlur in="noise" stdDeviation="1.2" result="smooth"/>
+                <feDisplacementMap in="SourceGraphic" in2="smooth" scale="24"
+                                   xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+        </defs>
+    </svg>
+
     <button class="back-to-top" type="button" aria-label="返回顶部">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
     </button>

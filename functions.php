@@ -82,13 +82,13 @@ function themeConfig($form)
     );
     $form->addInput($postToc);
 
-    // 毛玻璃效果开关
+    // 液态玻璃效果开关
     $backdrop = new \Typecho\Widget\Helper\Form\Element\Radio(
         'macaronBackdrop',
         ['on' => '启用', 'off' => '关闭'],
         'on',
-        '毛玻璃效果',
-        '控制是否启用 backdrop-filter 毛玻璃效果；不支持时自动优雅回落。'
+        '液态玻璃效果',
+        '控制是否启用 iOS 26 风格液态玻璃（backdrop-filter 折射模糊 + 镜面高光边缘）；不支持时自动优雅回落。'
     );
     $form->addInput($backdrop);
 

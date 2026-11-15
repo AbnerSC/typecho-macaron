@@ -1,6 +1,6 @@
 /* ==========================================================================
    typecho-macaron 交互脚本
-   原生 JS · 少量按需 · 主题切换 / 导航 / 汉堡菜单 / 目录 / 代码复制 / 返回顶部
+   原生 JS · 少量按需 · 主题切换 / 导航 / 汉堡菜单 / 目录 / 代码复制 / 返回顶部 / 液态玻璃高光
    主题首屏应用由 header.php 内联脚本提前完成，避免闪烁；此处处理交互。
    ========================================================================== */
 (function () {
@@ -400,6 +400,29 @@
     }
 
     /* ---------------------------------------------------------
+       液态玻璃：悬停时镜面高光随指针流动（iOS 实时渲染高光的 Web 近似）
+       尊重“减少动效”偏好与后台液态玻璃开关
+       --------------------------------------------------------- */
+    function initLiquidGlass() {
+        if (!getConfig().backdrop) return;
+        if (window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        var targets = document.querySelectorAll('.back-to-top, .toc-toggle');
+        Array.prototype.forEach.call(targets, function (el) {
+            el.addEventListener('pointermove', function (e) {
+                var r = el.getBoundingClientRect();
+                el.style.setProperty('--mx', (((e.clientX - r.left) / r.width) * 100).toFixed(1) + '%');
+                el.style.setProperty('--my', (((e.clientY - r.top) / r.height) * 100).toFixed(1) + '%');
+            });
+            el.addEventListener('pointerleave', function () {
+                el.style.setProperty('--mx', '50%');
+                el.style.setProperty('--my', '30%');
+            });
+        });
+    }
+
+    /* ---------------------------------------------------------
        表格：包裹横向滚动容器，避免窄屏溢出
        --------------------------------------------------------- */
     function initTableWrap() {
@@ -429,6 +452,7 @@
         initTableWrap();
         initLazyImages();
         initComments();
+        initLiquidGlass();
     }
 
     if (document.readyState === 'loading') {
