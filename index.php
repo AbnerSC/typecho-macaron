@@ -4,7 +4,7 @@
  *
  * @package  typecho-macaron
  * @author   AbnerSC
- * @version  1.0.3
+ * @version  1.0.4
  * @link     https://github.com/AbnerSC
  */
 if (!defined('__TYPECHO_ROOT_DIR__')) exit;
