@@ -77,8 +77,14 @@
     --glass-border: rgba(255, 255, 255, 0.55);                  /* 发丝边 */
     --glass-rim:    rgba(255, 255, 255, 0.95);                  /* 顶部镜面高光（受光边） */
     --glass-sheen:  rgba(255, 255, 255, 0.32);                  /* 底部弱反弹光 */
-    --glass-tint:   rgba(61, 127, 196, 0.45);                   /* tinted 变体（主强调色玻璃） */
+    --glass-tint:   rgba(30, 76, 128, 0.65);                    /* tinted 变体（clear 玻璃 + 暗衬底，HIG：底层明亮时白字需暗层支撑） */
     --glass-lume:   rgba(255, 255, 255, 0.42);                  /* 指针跟随高光色 */
+    --glass-raise:  rgba(255, 255, 255, 0.38);                  /* regular 变体补实层：叠加于 glass-bg，用于含大量文本的功能表面 */
+
+    /* —— 代码高亮令牌：浅色模式用色相不变的深色化马卡龙色（装饰浅色直接置于浅灰代码底对比不足），深色模式沿用马卡龙浅色 —— */
+    --code-tag:     #6f56b8;   /* 标签/属性名/常量：深薰衣草紫，浅灰底对比 ≈4.8:1 */
+    --code-keyword: #2b66a8;   /* 关键字/属性值：深天蓝，浅灰底对比 ≈4.9:1 */
+    --code-func:    #17706e;   /* 函数/类名：深薄荷青，浅灰底对比 ≈4.9:1 */
 
     /* —— 字体栈 —— */
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
@@ -117,6 +123,11 @@
     --glass-sheen:  rgba(255, 255, 255, 0.09);
     --glass-tint:   rgba(91, 155, 213, 0.38);
     --glass-lume:   rgba(255, 255, 255, 0.25);
+    --glass-raise:  rgba(28, 28, 30, 0.50);
+
+    --code-tag:     #c3b6e8;   /* 暗底沿用马卡龙浅色 */
+    --code-keyword: #a7c7e7;
+    --code-func:    #a8dadc;
 }
 
 /* —— 跟随系统：无显式 data-theme 时按 prefers-color-scheme —— */
@@ -147,6 +158,11 @@
         --glass-sheen:  rgba(255, 255, 255, 0.09);
         --glass-tint:   rgba(91, 155, 213, 0.38);
         --glass-lume:   rgba(255, 255, 255, 0.25);
+        --glass-raise:  rgba(28, 28, 30, 0.50);
+
+        --code-tag:     #c3b6e8;
+        --code-keyword: #a7c7e7;
+        --code-func:    #a8dadc;
     }
 }
 
@@ -154,6 +170,7 @@
 body.no-backdrop {
     --glass-bg: var(--bg-elevated) !important;
     --glass-tint: var(--bg-elevated) !important;
+    --glass-raise: transparent !important;
     --glass-blur: none !important;
     --glass-border: var(--border) !important;
     --glass-rim: transparent !important;
@@ -163,6 +180,7 @@ body.no-backdrop {
 body.no-backdrop .toc-toggle,
 body.no-backdrop .back-to-top { color: var(--text-soft); }
 body.no-backdrop .site-nav { background: var(--bg-elevated); } /* tint 渐变同步退化 */
+body.no-backdrop .site-nav::after { display: none; } /* 滚动边缘过渡带同步移除 */
 body.no-backdrop::before { opacity: 0.45; } /* 氛围光斑同步弱化 */
 
 /* -------------------------------------------------------------------------
@@ -327,6 +345,37 @@ input, textarea, select, button {
                 inset 0 -1px 0 var(--glass-sheen),
                 var(--shadow-sm);
 }
+
+/* 滚动边缘效果（scrolling edge effect）：底缘软渐隐过渡带，
+   下层内容以渐变方式沉入玻璃而非被硬边切割，边缘处模糊观感增强（对齐 iOS 26） */
+.site-nav::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 16px;
+    pointer-events: none;
+    background: linear-gradient(to bottom,
+                    rgba(255, 255, 255, 0.42),
+                    rgba(255, 255, 255, 0.16) 45%,
+                    transparent);
+}
+[data-theme="dark"] .site-nav::after {
+    background: linear-gradient(to bottom,
+                    rgba(22, 22, 23, 0.55),
+                    rgba(22, 22, 23, 0.22) 45%,
+                    transparent);
+}
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme]) body .site-nav::after {
+        background: linear-gradient(to bottom,
+                        rgba(22, 22, 23, 0.55),
+                        rgba(22, 22, 23, 0.22) 45%,
+                        transparent);
+    }
+}
+
 /* 深色顶栏 tint：马卡龙色降低亮度后叠加（仅玻璃模式下生效） */
 [data-theme="dark"] .site-nav {
     background: linear-gradient(100deg,
@@ -1270,19 +1319,17 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
 }
 .code-copy:hover { border-color: var(--primary-soft); color: var(--primary-ink); }
 
-/* Prism 令牌着色，跟随主题 */
+/* Prism 令牌着色，跟随主题（--code-* 令牌按模式切换深浅，保证代码底色上的对比度） */
 .token.comment, .token.prolog, .token.doctype, .token.cdata { color: var(--text-faint); }
 .token.punctuation { color: var(--text-soft); }
 .token.property, .token.tag, .token.boolean, .token.number,
-.token.constant, .token.symbol { color: var(--mc-lavender); }
+.token.constant, .token.symbol { color: var(--code-tag); }
 .token.selector, .token.attr-name, .token.string,
 .token.char, .token.builtin { color: var(--primary-ink); }
 .token.operator, .token.entity,
 .token.url { color: var(--text-soft); }
-.token.atrule, .token.attr-value, .token.keyword { color: var(--mc-sky); }
-.token.function, .token.class-name { color: var(--mc-mint); }
-[data-theme="dark"] .token.property, [data-theme="dark"] .token.tag,
-[data-theme="dark"] .token.boolean, [data-theme="dark"] .token.number { color: var(--mc-lavender); }
+.token.atrule, .token.attr-value, .token.keyword { color: var(--code-keyword); }
+.token.function, .token.class-name { color: var(--code-func); }
 
 /* -------------------------------------------------------------------------
    11. 文章目录（TOC）
@@ -1351,7 +1398,7 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
 .toc a {
     display: block;
     padding: 5px 10px;
-    border-radius: 8px;
+    border-radius: 0;
     color: var(--text-soft);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -1428,7 +1475,7 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
         gap: 4px;
         margin: 0;
         padding: 16px 18px 24px;
-        background: var(--glass-bg);
+        background: var(--glass-raise), var(--glass-bg); /* regular 变体：菜单文本量大，补实提高易读性 */
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
         border-bottom: 1px solid var(--glass-border);
@@ -1471,7 +1518,7 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
         left: 16px;
         max-height: 60vh;
         z-index: 91;
-        background: var(--glass-bg);
+        background: var(--glass-raise), var(--glass-bg); /* regular 变体：抽屉含大量目录文本 */
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
         border: 1px solid var(--glass-border);
@@ -1511,6 +1558,7 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
     .toc.is-open {
         background: var(--bg-elevated);
     }
+    .site-nav::after { display: none; }
     .back-to-top { color: var(--text-soft); }
     .toc-toggle {
         background: var(--bg-elevated);
@@ -1524,6 +1572,7 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
     body {
         --glass-bg: var(--bg-elevated) !important;
         --glass-tint: var(--bg-elevated) !important;
+        --glass-raise: transparent !important;
         --glass-blur: none !important;
         --glass-border: var(--border) !important;
         --glass-rim: transparent !important;
@@ -1533,5 +1582,25 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
     .toc-toggle,
     .back-to-top { color: var(--text-soft); }
     .site-nav { background: var(--bg-elevated); } /* tint 渐变同步退化 */
+    .site-nav::after { display: none; } /* 滚动边缘过渡带同步移除 */
     body::before { opacity: 0.45; } /* 氛围光斑同步弱化 */
+}
+
+/* 用户系统开启“提高对比度”（对齐 iOS Increase Contrast）：玻璃全面退化为实色高对比表面 */
+@media (prefers-contrast: more) {
+    body {
+        --glass-bg: var(--bg-elevated) !important;
+        --glass-tint: var(--bg-elevated) !important;
+        --glass-raise: transparent !important;
+        --glass-blur: none !important;
+        --glass-border: var(--border) !important;
+        --glass-rim: transparent !important;
+        --glass-sheen: transparent !important;
+        --glass-lume: transparent !important;
+    }
+    .toc-toggle,
+    .back-to-top { color: var(--text-soft); }
+    .site-nav { background: var(--bg-elevated); }
+    .site-nav::after { display: none; }
+    body::before { opacity: 0.3; }
 }
