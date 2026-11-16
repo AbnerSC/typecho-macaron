@@ -74,7 +74,7 @@ $this->need('header.php');
             <?php endif; ?>
             </div>
 
-            <?php if ($this->options->allowCommentAtPage && $this->allow('comment')): ?>
+            <?php if (!$isCatalog && !$isLinks): ?>
                 <?php $this->need('comments.php'); ?>
             <?php endif; ?>
         </article>
