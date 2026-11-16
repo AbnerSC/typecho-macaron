@@ -34,8 +34,8 @@ SSH 免密：`~/.ssh/config` 配置 `Host ${SSH_ALIAS} → ${ADMIN}@${TEST_HOST}
 
 - 测试机已安装 **Docker**。
 - 本机（Windows/PowerShell）可用 `ssh`、`scp`。
-- 基础镜像 `php:8.2-apache`（已内置 `pdo_sqlite`，可零外部数据库跑 Typecho）。
-  - 若测试机没有：`docker pull php:8.2-apache`。
+- 基础镜像 `php:8.4-apache`（已内置 `pdo_sqlite`，可零外部数据库跑 Typecho）。
+  - 若测试机没有：`docker pull php:8.4-apache`。
 - Typecho 发行包 `typecho.zip`（从官方 GitHub Releases 下载）。
 
 ---
