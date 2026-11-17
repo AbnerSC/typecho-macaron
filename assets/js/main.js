@@ -360,7 +360,7 @@
     }
 
     /* ---------------------------------------------------------
-       评论：取消回复、回复时填充作者
+       评论：取消回复、防重复提交
        --------------------------------------------------------- */
     function initComments() {
         var cancelLink = document.getElementById('cancel-comment-reply-link');
@@ -370,6 +370,37 @@
                 if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
         }
+
+        // 防重复提交：连点/回车只放行首次，其余就地拦截
+        // （表单级标志而非仅禁用按钮：Enter 提交不经过按钮）
+        var form = document.getElementById('comment-form');
+        if (!form) return;
+        var submitBtn = form.querySelector('button[type=submit]');
+        var originalText = submitBtn ? submitBtn.textContent : '';
+        var submitting = false;
+
+        form.addEventListener('submit', function (e) {
+            if (submitting) {
+                e.preventDefault();
+                return;
+            }
+            submitting = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.setAttribute('aria-busy', 'true');
+                submitBtn.textContent = '提交中…';
+            }
+        });
+
+        // 服务端报错跳转后返回（含 bfcache）时复位，避免按钮卡在禁用态
+        window.addEventListener('pageshow', function () {
+            submitting = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.removeAttribute('aria-busy');
+                submitBtn.textContent = originalText;
+            }
+        });
     }
 
     /* ---------------------------------------------------------

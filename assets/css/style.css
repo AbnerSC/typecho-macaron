@@ -676,6 +676,12 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
 }
 .btn:hover { background: var(--primary-ink); color: #fff; }
 .btn:active { transform: scale(0.97); }
+.btn:disabled {
+    cursor: default;
+    opacity: 0.6;
+    /* 吞掉 hover/active 反馈，避免禁用态仍有点击假象 */
+    pointer-events: none;
+}
 
 /* 搜索提交：圆形图标按钮，与胶囊输入框等高 */
 .search-submit {

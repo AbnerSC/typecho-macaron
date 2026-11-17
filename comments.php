@@ -27,11 +27,11 @@ function threadedComments($comment, $options)
         $commentClass .= ' comment-waiting';
     }
 ?>
-    <li class="comment-item<?php echo $commentClass; ?>" <?php $comment->theId(); ?>>
+    <li class="comment-item<?php echo $commentClass; ?>" id="<?php $comment->theId(); ?>">
         <div class="comment-head">
             <?php echo getCommentAvatar($comment->mail, 80); ?>
             <span class="comment-author"><?php $comment->author(true); ?></span>
-            <span class="comment-time"><?php $comment->dateTrans(); ?></span>
+            <span class="comment-time"><?php $comment->dateWord(); ?></span>
         </div>
         <div class="comment-content">
             <?php $comment->content(); ?>
@@ -39,6 +39,11 @@ function threadedComments($comment, $options)
         <div class="comment-reply">
             <?php $comment->reply('回复'); ?>
         </div>
+        <?php if ($comment->children): ?>
+            <div class="comment-children">
+                <?php $comment->threadedComments($options); ?>
+            </div>
+        <?php endif; ?>
     </li>
 <?php } }
 
@@ -66,9 +71,7 @@ function getCommentAvatar($mail, $size = 80)
     <?php if ($comments->have()): ?>
         <h3 class="comments-title"><?php $this->commentsNum('评论', '%d 条评论'); ?></h3>
 
-        <ol class="comment-list">
-            <?php $comments->listComments(); ?>
-        </ol>
+        <?php $comments->listComments(); ?>
 
         <?php $comments->pageNav('上一页', '下一页', 2, '…', array(
             'wrapTag'  => 'nav',
@@ -84,7 +87,7 @@ function getCommentAvatar($mail, $size = 80)
     <?php if ($this->allow('comment')): ?>
         <div id="<?php $this->respondId(); ?>" class="respond">
             <div class="cancel-comment-reply">
-                <?php $this->cancelCommentReply(); ?>
+                <?php $comments->cancelReply(); ?>
             </div>
 
             <h3 class="comments-title">添加评论</h3>
