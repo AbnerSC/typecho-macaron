@@ -295,10 +295,14 @@ input, textarea, select, button {
 
 .layout {
     display: grid;
-    grid-template-columns: 1fr;
+    /* minmax(0,…) 锁定轨道可收缩：避免长代码行/长 URL 以 min-content 撑开整个布局（手机端横向溢出的根因） */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--gap-lg);
     align-items: start;
 }
+
+.layout > .content-area,
+.layout > .sidebar { min-width: 0; }
 
 /* 开启侧边栏时的两栏结构：正文列 900px + 侧边栏 450px，整体居中 */
 .layout.with-sidebar {
@@ -1468,7 +1472,7 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
 @media (max-width: 900px) {
     /* 平板竖屏：侧栏移至正文下方，整体单列 */
     .layout.with-sidebar {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         gap: var(--gap);
     }
     .sidebar { position: static; }
