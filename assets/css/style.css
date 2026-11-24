@@ -1456,31 +1456,68 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
 /* -------------------------------------------------------------------------
    12. 响应式与移动端
    ------------------------------------------------------------------------- */
+@media (max-width: 1080px) {
+    /* 平板横屏：两栏改为“正文自适应 + 侧栏定宽 320px”，
+       避免固定 900/450 比例把正文列压得过窄 */
+    .layout.with-sidebar {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+        gap: var(--gap);
+    }
+}
+
 @media (max-width: 900px) {
+    /* 平板竖屏：侧栏移至正文下方，整体单列 */
     .layout.with-sidebar {
         grid-template-columns: 1fr;
+        gap: var(--gap);
     }
     .sidebar { position: static; }
+
+    /* 中屏导航压缩：汉堡折叠前（721-900px）菜单项多时不换行挤压 */
+    .nav-inner { gap: var(--gap-sm); }
+    .nav-menu { gap: 2px; }
+    .nav-menu a { padding: 8px 10px; font-size: 0.9rem; }
+    .post-card { padding: 20px; }
 }
 
 @media (max-width: 720px) {
-    :root { --nav-h: 58px; --container: 100%; }
+    :root {
+        --nav-h: 58px;
+        --container: 100%;
+        /* 小屏 GPU 降载：毛玻璃模糊半径收敛，长页滚动更流畅 */
+        --glass-blur: saturate(180%) blur(18px) brightness(1.06);
+    }
     body { line-height: 1.75; }
-    .container { padding: 0 18px; }
-    .site-main { padding-top: calc(var(--nav-h) + 24px); }
+    .container { padding: 0 16px; }
+    .site-main { padding-top: calc(var(--nav-h) + 20px); }
 
-    /* 导航折叠为汉堡菜单 */
-    .nav-burger { display: flex; }
+    /* 品牌长标题：不挤压汉堡按钮，超宽省略 */
+    .site-brand { min-width: 0; font-size: 1.05rem; }
+    .nav-inner .site-brand .brand-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* 触摸目标对齐 HIG 44px */
+    .nav-burger { display: flex; width: 44px; height: 44px; }
+    .nav-inner .theme-toggle { order: 3; width: 44px; height: 44px; margin-left: 0; }
+
+    /* 导航折叠为汉堡菜单：限高可滚 + 底部安全区（iPhone 手势条） */
     .nav-menu {
         position: fixed;
         top: var(--nav-h);
         left: 0;
         right: 0;
+        max-height: calc(100vh - var(--nav-h));
+        max-height: calc(100dvh - var(--nav-h));
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         flex-direction: column;
         align-items: stretch;
         gap: 4px;
         margin: 0;
-        padding: 16px 18px 24px;
+        padding: 16px 18px calc(24px + env(safe-area-inset-bottom));
         background: var(--glass-raise), var(--glass-bg); /* regular 变体：菜单文本量大，补实提高易读性 */
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
@@ -1502,27 +1539,85 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
         border-radius: var(--radius-sm);
         font-size: 1rem;
     }
-    .theme-toggle { margin-left: 0; }
-    .nav-inner .theme-toggle { order: 3; }
 
-    .post-card { padding: 22px; }
+    /* 菜单打开时的全屏遮罩（点击空白处关闭，由 JS 动态插入） */
+    .nav-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 99;
+        background: rgba(15, 20, 30, 0.35);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--dur) var(--ease), visibility var(--dur);
+    }
+    .nav-overlay.is-open { opacity: 1; visibility: visible; }
+
+    /* 菜单/目录抽屉打开时锁定背景滚动（JS 同步加类） */
+    body.nav-locked { overflow: hidden; }
+
+    .post-card { padding: 20px 18px; }
     .post-card .card-title { font-size: 1.15rem; }
+    .post-meta { gap: 8px 12px; }
     .post-nav { grid-template-columns: 1fr; }
     .post-nav .post-nav-next { text-align: left; }
-    .comment-form .field-row { grid-template-columns: 1fr; }
+    .empty-state { padding: 40px 16px; }
+    .archive-items li { gap: 10px; }
     .article-body { font-size: 1rem; }
+    .article-body blockquote { padding: 8px 16px; }
+
+    /* 代码块：小屏字号收敛减少横向滚动，惯性滚动更顺滑 */
+    .article-body pre {
+        padding: 16px 14px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .article-body pre code { font-size: 0.8rem; }
+    .code-toolbar { margin-bottom: 6px; }
+    .code-copy { padding: 7px 14px; } /* 触摸目标加高 */
+
+    /* 视频类嵌入按 16:9 自适应，避免小屏溢出 */
+    .article-body iframe[src*="bilibili"],
+    .article-body iframe[src*="youtube"],
+    .article-body iframe[src*="youtu.be"],
+    .article-body iframe[src*="player.vimeo"],
+    .article-body iframe[src*="v.qq.com"] {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        height: auto;
+    }
+
+    /* 评论：内边距收紧，嵌套缩进减半防挤压 */
+    .comment-form { padding: 18px 16px; }
+    .comment-form .field-row { grid-template-columns: 1fr; }
+    .comment-children,
+    .comment-list .children { padding-left: 14px; }
+
+    /* 悬浮按钮贴近拇指热区，并避让底部安全区（iPhone 手势条） */
+    .toc-toggle { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); }
+    .back-to-top { right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+    /* 输入法弹出时隐藏悬浮按钮，避免遮挡输入框（JS 聚焦输入时加 kb-open） */
+    body.kb-open .toc-toggle,
+    body.kb-open .back-to-top {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
 
     /* 移动端 TOC 改为悬浮抽屉 */
-    .toc { display: none; }
+    .toc { display: none; -webkit-overflow-scrolling: touch; }
     .toc-float { display: none; }
     .toc-toggle { display: flex; align-items: center; justify-content: center; }
     .toc.is-open {
         display: block;
         position: fixed;
         right: 16px;
-        bottom: 84px;
+        bottom: calc(76px + env(safe-area-inset-bottom));
         left: 16px;
         max-height: 60vh;
+        max-height: 60dvh;
         z-index: 91;
         background: var(--glass-raise), var(--glass-bg); /* regular 变体：抽屉含大量目录文本 */
         -webkit-backdrop-filter: var(--glass-blur);
@@ -1530,6 +1625,15 @@ a.tag:hover { background: var(--primary-soft); color: #fff; }
         border: 1px solid var(--glass-border);
         box-shadow: inset 0 1px 0 var(--glass-rim), var(--shadow-lg);
     }
+}
+
+/* 触屏设备：关闭依赖悬停的位移反馈，避免点按时卡片“粘住”上浮态 */
+@media (hover: none) {
+    .post-card:hover,
+    .post-nav a:hover,
+    .link-card:hover { transform: none; }
+    .post-card:hover { box-shadow: var(--shadow-sm); border-color: var(--border); }
+    .post-card:hover .card-title { color: var(--text); }
 }
 
 @media (min-width: 721px) {

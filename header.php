@@ -68,7 +68,7 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
         <div class="nav-inner">
             <a class="site-brand" href="<?php $this->options->siteUrl(); ?>">
                 <span class="brand-dot"></span>
-                <?php $this->options->title(); ?>
+                <span class="brand-text"><?php $this->options->title(); ?></span>
             </a>
 
             <button class="nav-burger" type="button" aria-label="菜单" aria-expanded="false">

@@ -79,26 +79,45 @@
 
     /* ---------------------------------------------------------
        汉堡菜单（移动端导航折叠）
+       打开时锁背景滚动，支持遮罩点击 / Esc / 菜单项点击关闭
        --------------------------------------------------------- */
     function initBurger() {
         var burger = document.querySelector('.nav-burger');
         var menu = document.querySelector('.nav-menu');
         if (!burger || !menu) return;
 
-        burger.addEventListener('click', function () {
-            var open = menu.classList.toggle('is-open');
+        // 全屏遮罩：点击空白处关闭菜单
+        var overlay = document.createElement('div');
+        overlay.className = 'nav-overlay';
+        document.body.appendChild(overlay);
+
+        var setOpen = function (open) {
+            menu.classList.toggle('is-open', open);
             burger.classList.toggle('is-open', open);
             burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            overlay.classList.toggle('is-open', open);
+            document.body.classList.toggle('nav-locked', open);
+        };
+
+        burger.addEventListener('click', function () {
+            setOpen(!menu.classList.contains('is-open'));
         });
 
         // 点击菜单项后自动收起
         menu.addEventListener('click', function (e) {
-            if (e.target.closest('a')) {
-                menu.classList.remove('is-open');
-                burger.classList.remove('is-open');
-                burger.setAttribute('aria-expanded', 'false');
-            }
+            if (e.target.closest('a')) setOpen(false);
         });
+
+        overlay.addEventListener('click', function () { setOpen(false); });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && menu.classList.contains('is-open')) setOpen(false);
+        });
+
+        // 从移动断点切回桌面时复位状态，避免残留遮罩/锁定
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 720 && menu.classList.contains('is-open')) setOpen(false);
+        }, { passive: true });
     }
 
     /* ---------------------------------------------------------
@@ -159,11 +178,20 @@
             items.push({ id: h.id, link: a });
         });
 
-        // 移动端悬浮目录开关
+        // 移动端悬浮目录开关（打开时同步锁定背景滚动）
         var toggle = document.querySelector('.toc-toggle');
         if (toggle) {
             toggle.addEventListener('click', function () {
-                tocBox.classList.toggle('is-open');
+                var open = tocBox.classList.toggle('is-open');
+                document.body.classList.toggle('nav-locked', open);
+            });
+
+            // 点击目录项跳转后自动收起抽屉
+            list.addEventListener('click', function (e) {
+                if (e.target.closest('a') && tocBox.classList.contains('is-open')) {
+                    tocBox.classList.remove('is-open');
+                    document.body.classList.remove('nav-locked');
+                }
             });
         }
 
@@ -470,6 +498,24 @@
     }
 
     /* ---------------------------------------------------------
+       移动端输入法适配：聚焦输入框时隐藏悬浮按钮，
+       避免 iOS 键盘弹起后目录/回顶按钮遮挡输入区
+       （表现由 CSS 的 body.kb-open 在小屏断点内控制）
+       --------------------------------------------------------- */
+    function initKeyboardGuard() {
+        var isField = function (el) {
+            return el && el.closest &&
+                el.closest('input, textarea, select');
+        };
+        document.addEventListener('focusin', function (e) {
+            if (isField(e.target)) document.body.classList.add('kb-open');
+        });
+        document.addEventListener('focusout', function (e) {
+            if (isField(e.target)) document.body.classList.remove('kb-open');
+        });
+    }
+
+    /* ---------------------------------------------------------
        启动
        --------------------------------------------------------- */
     function boot() {
@@ -484,6 +530,7 @@
         initLazyImages();
         initComments();
         initLiquidGlass();
+        initKeyboardGuard();
     }
 
     if (document.readyState === 'loading') {
