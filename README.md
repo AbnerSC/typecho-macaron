@@ -70,3 +70,6 @@
 本项目基于 **GNU Affero General Public License v3.0（AGPL-3.0）** 开源，详见 [LICENSE](LICENSE)。
 
 > 该协议要求任何基于本主题分发或对外提供网络服务衍生版本时，同样以 AGPL-3.0 公开完整源码。
+
+## M8ven
+[![M8ven Score](https://m8ven.ai/badge/mcp/abnersc-typecho-mcpserver-19xn1x?v=9e70b111548a5d597d577e916596badf)](https://m8ven.ai/mcp/abnersc-typecho-mcpserver-19xn1x?s=readme)
